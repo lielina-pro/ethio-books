@@ -1,12 +1,12 @@
 const express = require('express');
-const { register, login } = require('../controllers/authController');
+const { register, login, registerTutor } = require('../controllers/authController');
 const { uploadTutorDocs, collectDocsUrls } = require('../middleware/uploadMiddleware');
 
 const router = express.Router();
 
-// For tutor registration, docs will be uploaded to Cloudinary and URLs
-// attached on req.docsUrls before reaching the controller.
-router.post('/register', uploadTutorDocs, collectDocsUrls, register);
+router.post('/register', register);
+// Tutor registration: docs uploaded to Cloudinary, URLs attached to req.docsUrls
+router.post('/register-tutor', uploadTutorDocs, collectDocsUrls, registerTutor);
 router.post('/login', login);
 
 module.exports = router;

@@ -1,7 +1,10 @@
+const dotenv = require('dotenv');
+// Load environment variables BEFORE any other imports that rely on them
+dotenv.config();
+
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
-const dotenv = require('dotenv');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -14,8 +17,7 @@ const { User } = require('./models/User');
 const { Message } = require('./models/Message');
 const { Transaction } = require('./models/Transaction');
 const { Notification } = require('./models/Notification');
-
-dotenv.config();
+const cloudinary = require('cloudinary').v2;
 
 const app = express();
 const server = http.createServer(app);
@@ -36,6 +38,32 @@ app.use(morgan('dev'));
 // Basic health check route
 app.get('/', (req, res) => {
   res.json({ message: 'Ethio Books API is running' });
+});
+
+// Cloudinary health check route
+app.get('/api/health/cloudinary', async (req, res) => {
+  try {
+    const { CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET } = process.env;
+
+    console.log('Cloudinary env snapshot:', {
+      cloudName: CLOUDINARY_CLOUD_NAME || 'undefined',
+      apiKeyPrefix: CLOUDINARY_API_KEY ? CLOUDINARY_API_KEY.slice(0, 4) + '***' : 'undefined',
+      hasSecret: !!CLOUDINARY_API_SECRET
+    });
+
+    const result = await cloudinary.api.ping();
+
+    return res.json({
+      ok: true,
+      cloud_name: result?.cloud_name || CLOUDINARY_CLOUD_NAME || null
+    });
+  } catch (err) {
+    console.error('Cloudinary ping failed:', err.message);
+    return res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
 });
 
 // Routes

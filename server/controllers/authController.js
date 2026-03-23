@@ -121,8 +121,14 @@ const registerTutor = async (req, res) => {
   // Wrap in Try/Catch to prevent server crashes
   try {
     const {
-      fullName, email, password, phone,
-      education, bio, telegramUsername, trialVideoUrl
+      fullName,
+      email,
+      password,
+      phone,
+      educationLevel,
+      achievements,
+      telegramUsername,
+      trialVideoUrl
     } = req.body;
 
     // 1. Validation
@@ -130,9 +136,11 @@ const registerTutor = async (req, res) => {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
-    // 2. Handle the File Safely
-    // If a file exists, use path; otherwise, use null to avoid breaking
-    const documentPath = req.file ? req.file.path : null;
+    // 2. Handle uploaded documents (multi-file)
+    // With multer-storage-cloudinary, each file's `path` is the hosted URL.
+    // Prefer `req.docsUrls` if the middleware populated it.
+    const docsUrls =
+      Array.isArray(req.docsUrls) ? req.docsUrls : (req.files || []).map((f) => f.path);
 
     // 3. Check Existence
     const existingTutor = await User.findOne({ $or: [{ email }, { phone }] });
@@ -153,11 +161,11 @@ const registerTutor = async (req, res) => {
       // Manual Status Setup for Admin Approval Workflow
       status: 'pending',
       isVerified: false,
-      educationLevel: education,
-      achievements: bio,
+      educationLevel,
+      achievements,
       telegramUsername,
       trialVideoUrl,
-      docs: documentPath ? [documentPath] : []
+      docs: docsUrls
     });
 
     const token = generateToken(tutor._id, tutor.role);
