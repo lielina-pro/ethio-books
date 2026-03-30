@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
 import { useNavigate } from 'react-router-dom';
+import PremiumRequestsPanel from '../components/PremiumRequestsPanel';
 
 const PRIMARY_BLUE = '#007BFF';
 
@@ -14,10 +15,17 @@ const AdminDashboard = () => {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('overview');
   const [liveMessages, setLiveMessages] = useState([]);
+  const [pendingContent, setPendingContent] = useState([]);
+  const [pendingPurchases, setPendingPurchases] = useState([]);
+  const [helpPing, setHelpPing] = useState(0);
+  const [adminMsgUserId, setAdminMsgUserId] = useState('');
+  const [adminMsgText, setAdminMsgText] = useState('');
 
   // Modals and Filters State
   const [rejectModal, setRejectModal] = useState({ isOpen: false, tutorId: null });
   const [rejectionReason, setRejectionReason] = useState('');
+  const [deleteTutorModal, setDeleteTutorModal] = useState({ isOpen: false, tutorId: null });
+  const [deleteTutorSubmitting, setDeleteTutorSubmitting] = useState(false);
   
   const [directoryModal, setDirectoryModal] = useState({ isOpen: false, type: null }); // 'students' | 'tutors'
   const [filterAction, setFilterAction] = useState(false); // If true, show only action view
@@ -42,15 +50,19 @@ const AdminDashboard = () => {
       setLoading(true);
       setError('');
 
-      const [pendingTutorsRes, pendingTxRes, usersRes] = await Promise.all([
+      const [pendingTutorsRes, pendingTxRes, usersRes, pcRes, ppRes] = await Promise.all([
         api.get('/admin/pending-tutors').catch(() => ({ data: [] })),
         api.get('/admin/pending-transactions').catch(() => ({ data: [] })),
-        api.get('/admin/users').catch(() => ({ data: [] }))
+        api.get('/admin/users').catch(() => ({ data: [] })),
+        api.get('/admin/pending-content').catch(() => ({ data: [] })),
+        api.get('/admin/pending-content-purchases').catch(() => ({ data: [] }))
       ]);
 
       setTutors(pendingTutorsRes.data || []);
       setTransactions(pendingTxRes.data || []);
       setUsers(usersRes.data || []);
+      setPendingContent(pcRes.data || []);
+      setPendingPurchases(ppRes.data || []);
     } catch (err) {
       console.error(err);
       const message =
@@ -84,6 +96,10 @@ const AdminDashboard = () => {
       setLiveMessages((prev) => [message, ...prev].slice(0, 100));
     });
 
+    socket.on('helpCenterMessage', () => {
+      setHelpPing((n) => n + 1);
+    });
+
     return () => {
       socket.disconnect();
     };
@@ -92,11 +108,64 @@ const AdminDashboard = () => {
 
   const totalStudentsList = users.filter((u) => u.role === 'student');
   const totalTutorsList = users.filter((u) => u.role === 'tutor');
+  const approvedTutorsList = totalTutorsList.filter((u) => u.tutorStatus === 'approved');
   const rejectedTutorsList = totalTutorsList.filter((u) => u.tutorStatus === 'rejected');
 
   const totalStudents = totalStudentsList.length;
-  const totalTutors = totalTutorsList.length;
-  const pendingApprovals = tutors.length + transactions.length;
+  const totalTutors = approvedTutorsList.length;
+  const pendingApprovals =
+    tutors.length + transactions.length + pendingContent.length + pendingPurchases.length;
+
+  const handleApproveContent = async (id) => {
+    try {
+      await api.patch(`/admin/approve-content/${id}`);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed');
+    }
+  };
+
+  const handleRejectContent = async (id) => {
+    const note = window.prompt('Rejection note for tutor:', '');
+    if (note === null) return;
+    try {
+      await api.patch(`/admin/reject-content/${id}`, { note });
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed');
+    }
+  };
+
+  const handleApproveContentPurchase = async (id) => {
+    try {
+      await api.patch(`/admin/approve-content-purchase/${id}`);
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed');
+    }
+  };
+
+  const handleRejectContentPurchase = async (id) => {
+    const note = window.prompt('Rejection note for student:', '');
+    if (note === null) return;
+    try {
+      await api.patch(`/admin/reject-content-purchase/${id}`, { note });
+      await fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed');
+    }
+  };
+
+  const sendAdminMessage = () => {
+    const trimmed = adminMsgText.trim();
+    if (!trimmed || !adminMsgUserId || !socketRef.current) return;
+    socketRef.current.emit('adminSendMessage', {
+      receiverId: adminMsgUserId,
+      text: trimmed
+    });
+    setAdminMsgText('');
+    alert('Message sent (delivered if user is online).');
+  };
 
   const handleApproveTutor = async (id) => {
     try {
@@ -124,6 +193,22 @@ const AdminDashboard = () => {
       setRejectModal({ isOpen: false, tutorId: null });
       setRejectionReason('');
       alert('Tutor rejected (simulated if backend endpoint is missing).');
+    }
+  };
+
+  const handleDeleteTutor = async () => {
+    if (!deleteTutorModal.tutorId) return;
+    try {
+      setDeleteTutorSubmitting(true);
+      setError('');
+      await api.delete(`/admin/tutors/${deleteTutorModal.tutorId}`);
+      setDeleteTutorModal({ isOpen: false, tutorId: null });
+      await fetchData();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to delete tutor');
+    } finally {
+      setDeleteTutorSubmitting(false);
     }
   };
 
@@ -208,6 +293,62 @@ const AdminDashboard = () => {
         </div>
       )}
 
+      {/* Delete Tutor Modal */}
+      {deleteTutorModal.isOpen && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-fade-in">
+            <div className="p-8">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+                  <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7h6m2 0H7m6-3V2h4v2" />
+                    </svg>
+                  </div>
+                  Delete Tutor
+                </h3>
+                <button
+                  onClick={() => setDeleteTutorModal({ isOpen: false, tutorId: null })}
+                  className="text-gray-400 hover:text-gray-600 transition"
+                  type="button"
+                >
+                  <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <p className="text-gray-600 mb-2 text-sm font-medium">
+                This will delete the tutor account and remove all content they uploaded.
+              </p>
+              <p className="text-gray-500 text-xs">
+                This action cannot be undone.
+              </p>
+            </div>
+
+            <div className="border-t border-gray-100 p-6 bg-gray-50/80 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setDeleteTutorModal({ isOpen: false, tutorId: null })}
+                className="px-6 py-3 font-bold text-gray-700 hover:bg-gray-200 bg-gray-100 rounded-xl transition"
+                disabled={deleteTutorSubmitting}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteTutor}
+                className="px-6 py-3 font-bold text-white bg-red-600 hover:bg-red-700 rounded-xl shadow-md transition disabled:opacity-60 disabled:cursor-not-allowed"
+                style={{ opacity: deleteTutorSubmitting ? 0.7 : 1 }}
+                disabled={deleteTutorSubmitting}
+              >
+                {deleteTutorSubmitting ? 'Deleting…' : 'Confirm Delete'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Directory Modal (Students / Tutors) */}
       {directoryModal.isOpen && (
         <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/60 backdrop-blur-sm px-4 py-10">
@@ -250,8 +391,15 @@ const AdminDashboard = () => {
                           <>
                             <p className="flex justify-between"><span className="text-gray-400">Status</span> <span className="font-bold text-gray-800 uppercase tracking-wider text-[10px] bg-gray-100 px-2 py-1 rounded">{user.tutorStatus}</span></p>
                             <p className="flex justify-between"><span className="text-gray-400">Education</span> <span className="font-bold text-gray-800 truncate pl-4">{user.educationLevel || 'N/A'}</span></p>
-                            <div className="pt-2">
+                            <div className="pt-2 space-y-2">
                               <button onClick={() => handleViewDocs(user.docs)} className="w-full text-center py-2 bg-blue-50 text-blue-700 rounded-lg text-xs font-bold hover:bg-blue-100 transition">View Documents</button>
+                              <button
+                                type="button"
+                                onClick={() => setDeleteTutorModal({ isOpen: true, tutorId: user._id })}
+                                className="w-full text-center py-2 bg-red-50 text-red-700 rounded-lg text-xs font-bold hover:bg-red-100 transition"
+                              >
+                                Delete Tutor
+                              </button>
                             </div>
                           </>
                         )}
@@ -329,6 +477,22 @@ const AdminDashboard = () => {
           </button>
           <button
             type="button"
+            onClick={() => setActiveTab('moderation')}
+            className={`whitespace-nowrap px-4 sm:px-6 py-4 text-base sm:text-lg font-bold transition-colors border-b-4 -mb-[2px] relative shrink-0 ${
+              activeTab === 'moderation'
+                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+                : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-t-xl'
+            }`}
+          >
+            Content &amp; Payments
+            {(pendingContent.length > 0 || pendingPurchases.length > 0) && (
+              <span className="ml-2 inline-flex min-w-[1.25rem] justify-center rounded-full bg-orange-500 px-1.5 text-xs text-white">
+                {pendingContent.length + pendingPurchases.length}
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
             onClick={() => setActiveTab('live')}
             className={`whitespace-nowrap px-4 sm:px-6 py-4 text-base sm:text-lg font-bold transition-colors border-b-4 -mb-[2px] relative shrink-0 ${
               activeTab === 'live'
@@ -336,13 +500,29 @@ const AdminDashboard = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-t-xl'
             }`}
           >
-            Live Feed Monitoring  
+            Live Feed Monitoring
             {liveMessages.length > 0 && (
               <span className="absolute top-4 right-2 flex h-3 w-3">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
               </span>
             )}
+            {helpPing > 0 && (
+              <span className="ml-2 inline-flex rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-bold text-gray-900">
+                Help+
+              </span>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('premium')}
+            className={`whitespace-nowrap px-4 sm:px-6 py-4 text-base sm:text-lg font-bold transition-colors border-b-4 -mb-[2px] relative shrink-0 ${
+              activeTab === 'premium'
+                ? 'border-blue-600 text-blue-700 bg-blue-50/50 rounded-t-xl'
+                : 'border-transparent text-gray-500 hover:text-gray-800 hover:bg-gray-50 rounded-t-xl'
+            }`}
+          >
+            Premium Requests
           </button>
         </div>
 
@@ -676,10 +856,174 @@ const AdminDashboard = () => {
           </div>
         )}
 
+        {activeTab === 'premium' && (
+          <div className="space-y-8 animate-fade-in">
+            <PremiumRequestsPanel />
+          </div>
+        )}
+
+        {activeTab === 'moderation' && (
+          <div className="space-y-8 animate-fade-in">
+            <section className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900">Tutor content — pending approval</h2>
+              <p className="text-gray-500 mt-1 text-sm">Review file or video link, then approve or reject.</p>
+              {pendingContent.length === 0 ? (
+                <p className="mt-6 text-gray-400">None pending.</p>
+              ) : (
+                <ul className="mt-6 space-y-4">
+                  {pendingContent.map((c) => (
+                    <li
+                      key={c._id}
+                      className="rounded-2xl border border-gray-100 bg-gray-50/50 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-bold text-gray-900">{c.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">
+                          {c.contentType} • Grade {c.grade} • {c.accessType === 'paid' ? `${c.priceEtb} ETB` : 'Free'} •{' '}
+                          {c.uploadedBy?.fullName || 'Tutor'}
+                        </p>
+                        {c.description ? (
+                          <p className="text-sm text-gray-600 mt-2 line-clamp-2">{c.description}</p>
+                        ) : null}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {c.pdfUrl && (
+                            <a
+                              href={c.pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold text-blue-600 hover:underline"
+                            >
+                              Open file
+                            </a>
+                          )}
+                          {c.videoUrl && (
+                            <a
+                              href={c.videoUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs font-bold text-blue-600 hover:underline"
+                            >
+                              Open video link
+                            </a>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => handleRejectContent(c._id)}
+                          className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-xs font-bold text-gray-700"
+                        >
+                          Reject
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleApproveContent(c._id)}
+                          className="rounded-xl px-4 py-2 text-xs font-extrabold text-white"
+                          style={{ backgroundColor: PRIMARY_BLUE }}
+                        >
+                          Approve
+                        </button>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+
+            <section className="bg-white rounded-3xl border border-gray-100 p-6 sm:p-8 shadow-sm">
+              <h2 className="text-xl font-bold text-gray-900">Paid content — payment proofs</h2>
+              <p className="text-gray-500 mt-1 text-sm">Verify student screenshots, then grant access.</p>
+              {pendingPurchases.length === 0 ? (
+                <p className="mt-6 text-gray-400">None pending.</p>
+              ) : (
+                <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {pendingPurchases.map((p) => (
+                    <div
+                      key={p._id}
+                      className="rounded-2xl border border-gray-100 overflow-hidden bg-gray-50/50 flex flex-col"
+                    >
+                      <div className="h-40 bg-gray-200 relative">
+                        <img src={p.screenshotUrl} alt="Proof" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => window.open(p.screenshotUrl, '_blank')}
+                          className="absolute bottom-2 right-2 text-xs bg-white px-2 py-1 rounded-lg font-bold shadow"
+                        >
+                          Full size
+                        </button>
+                      </div>
+                      <div className="p-4 flex-1 flex flex-col gap-2">
+                        <p className="font-bold text-gray-900">{p.content?.title || 'Content'}</p>
+                        <p className="text-xs text-gray-600">
+                          Student: {p.student?.fullName} • Tutor: {p.content?.uploadedBy?.fullName || '—'} • {p.amount ?? p.content?.priceEtb} ETB
+                        </p>
+                        <div className="flex gap-2 mt-auto pt-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRejectContentPurchase(p._id)}
+                            className="flex-1 rounded-xl border border-gray-200 bg-white py-2 text-xs font-bold"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleApproveContentPurchase(p._id)}
+                            className="flex-1 rounded-xl py-2 text-xs font-extrabold text-white"
+                            style={{ backgroundColor: PRIMARY_BLUE }}
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          </div>
+        )}
+
         {activeTab === 'live' && (
           <section className="bg-gray-900 rounded-3xl shadow-2xl border border-gray-800 p-6 sm:p-8 text-white min-h-[500px] sm:min-h-[600px] flex flex-col animate-fade-in relative overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 sm:w-96 sm:h-96 bg-blue-500/10 blur-[100px] rounded-full pointer-events-none"></div>
-            
+
+            <div className="relative z-10 mb-6 rounded-2xl border border-gray-700 bg-gray-800/80 p-4 sm:p-5">
+              <h3 className="text-sm font-bold text-gray-200 uppercase tracking-wider">Send message to user</h3>
+              <p className="text-xs text-gray-400 mt-1">Delivers to their DM room (two-way when they reply).</p>
+              <div className="mt-3 flex flex-col sm:flex-row gap-2 sm:items-center">
+                <select
+                  className="flex-1 rounded-xl border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white"
+                  value={adminMsgUserId}
+                  onChange={(e) => setAdminMsgUserId(e.target.value)}
+                >
+                  <option value="">Select student or tutor…</option>
+                  {users
+                    .filter((u) => u.role === 'student' || u.role === 'tutor')
+                    .map((u) => (
+                      <option key={u._id} value={u._id}>
+                        {u.fullName} ({u.role})
+                      </option>
+                    ))}
+                </select>
+                <input
+                  type="text"
+                  value={adminMsgText}
+                  onChange={(e) => setAdminMsgText(e.target.value)}
+                  placeholder="Message…"
+                  className="flex-[2] rounded-xl border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white placeholder-gray-500"
+                />
+                <button
+                  type="button"
+                  onClick={sendAdminMessage}
+                  className="rounded-xl px-4 py-2 text-sm font-bold text-white shadow-md"
+                  style={{ backgroundColor: PRIMARY_BLUE }}
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4 relative z-10">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold flex items-center gap-3">

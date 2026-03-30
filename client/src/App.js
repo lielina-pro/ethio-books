@@ -2,8 +2,10 @@ import React from 'react';
 import TutorDashboard from './pages/TutorDashboard';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import AuthPage from './pages/AuthPage';
+import LandingPage from './pages/LandingPage';
 import AdminDashboard from './pages/AdminDashboard';
 import StudentDashboard from './pages/StudentDashboard';
+import TutorProfilePage from './pages/TutorProfilePage';
 import ProtectedRoute from './components/ProtectedRoute';
 
 
@@ -25,12 +27,21 @@ function App() {
   return (
     <Router>
       <Routes>
-        <Route path="/" element={<AuthPage />} />
-        <Route path="/dashboard" element={<StudentDashboard />} />
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/auth" element={<AuthPage />} />
+
+        <Route element={<ProtectedRoute allowedRoles={['student']} />}>
+          <Route path="/dashboard" element={<StudentDashboard />} />
+          <Route path="/tutor/:id" element={<TutorProfilePage />} />
+        </Route>
+
         <Route path="/waiting-approval" element={<WaitingApprovalPage />} />
 
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin" element={<AdminDashboard />} />
+        </Route>
+
+        <Route element={<ProtectedRoute allowedRoles={['tutor']} />}>
           <Route path="/tutor" element={<TutorDashboard />} />
         </Route>
       </Routes>

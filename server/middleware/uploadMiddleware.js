@@ -37,6 +37,8 @@ const uploadDocsToCloudinary = multer({
 
 // Multer middleware to parse incoming "docs" files
 const uploadTutorDocs = uploadDocsToCloudinary.array('docs', 10);
+const uploadContentFile = uploadDocsToCloudinary.single('file');
+const uploadPaymentScreenshot = uploadDocsToCloudinary.single('screenshot');
 
 // After multer runs, collect the Cloudinary URLs and attach to req
 const collectDocsUrls = (req, res, next) => {
@@ -52,6 +54,8 @@ const collectDocsUrls = (req, res, next) => {
 
 module.exports = {
   uploadTutorDocs,
-  collectDocsUrls
+  collectDocsUrls,
+  uploadContentFile,
+  uploadPaymentScreenshot
 };
 

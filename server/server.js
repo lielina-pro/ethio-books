@@ -13,9 +13,12 @@ const authRoutes = require('./routes/authRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const contentRoutes = require('./routes/contentRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const bookingRoutes = require('./routes/bookingRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
+const premiumRoutes = require('./routes/premiumRoutes');
+const messageRoutes = require('./routes/messageRoutes');
 const { User } = require('./models/User');
 const { Message } = require('./models/Message');
-const { Transaction } = require('./models/Transaction');
 const { Notification } = require('./models/Notification');
 const cloudinary = require('cloudinary').v2;
 
@@ -71,6 +74,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/content', contentRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/premium', premiumRoutes);
+app.use('/api/messages', messageRoutes);
 
 const io = new Server(server, {
   cors: {
@@ -141,25 +148,31 @@ io.on('connection', (socket) => {
       const { roomId, receiverId, text } = payload || {};
       if (!roomId || !receiverId || !text) return;
 
-      // Gate student access: must be premium or have approved transaction with tutor
+      const receiverUser = await User.findById(receiverId);
+      if (!receiverUser) {
+        socket.emit('messageError', 'Recipient not found.');
+        return;
+      }
+
       if (user.role === 'student') {
-        const receiverUser = await User.findById(receiverId);
-        if (receiverUser && receiverUser.role === 'tutor') {
-          const student = await User.findById(user.id);
-          if (!student.isPremium) {
-            const validTx = await Transaction.findOne({
-              student: student._id,
-              tutor: receiverUser._id,
-              status: 'approved'
-            });
-            if (!validTx) {
-              socket.emit(
-                'messageError',
-                'You must buy this tutor\'s content or be Premium to chat.'
-              );
-              return;
-            }
-          }
+        const student = await User.findById(user.id);
+        if (receiverUser.role === 'tutor' && !student.isPremium) {
+          socket.emit(
+            'messageError',
+            'Premium students can message tutors. Free students can use Help Center (Admin) only.'
+          );
+          return;
+        }
+        if (receiverUser.role === 'student') {
+          socket.emit('messageError', 'You can only message tutors (Premium) or Help Center.');
+          return;
+        }
+      }
+
+      if (user.role === 'tutor') {
+        if (receiverUser.role !== 'admin' && receiverUser.role !== 'student') {
+          socket.emit('messageError', 'You can message students or Help Center only.');
+          return;
         }
       }
 
@@ -186,22 +199,34 @@ io.on('connection', (socket) => {
           id: message.receiver._id.toString(),
           fullName: message.receiver.fullName,
           role: message.receiver.role
-        }
+        },
+        isHelpCenter: receiverUser.role === 'admin'
       };
 
       io.to(roomId).emit('newMessage', messageData);
       io.to('admin-monitor').emit('newMessage', messageData);
+      if (receiverUser.role === 'admin') {
+        io.to('admin-monitor').emit('helpCenterMessage', messageData);
+      }
 
-      // Notification for receiver
       try {
+        const notifType = receiverUser.role === 'admin' ? 'help_center' : 'message';
+        const preview =
+          text && typeof text === 'string'
+            ? text.trim().length > 50
+              ? `${text.trim().slice(0, 50)}...`
+              : text.trim()
+            : '';
         await Notification.create({
           user: receiverId,
-          message: `New message from ${message.sender.fullName}`,
-          type: 'message'
+          type: notifType,
+          title: 'New Message',
+          message: `${message.sender.fullName} sent you a message${preview ? `: "${preview}"` : ''}`,
+          link: receiverUser.role === 'admin' ? '/admin' : '/dashboard'
         });
         io.to(`user:${receiverId}`).emit('notification', {
           message: `New message from ${message.sender.fullName}`,
-          type: 'message',
+          type: notifType,
           createdAt: new Date().toISOString()
         });
       } catch (notifyErr) {
@@ -209,6 +234,68 @@ io.on('connection', (socket) => {
       }
     } catch (err) {
       console.error('sendMessage error:', err);
+    }
+  });
+
+  socket.on('adminSendMessage', async (payload) => {
+    try {
+      if (user.role !== 'admin') return;
+      const { receiverId, text } = payload || {};
+      if (!receiverId || !text || !text.trim()) return;
+
+      const receiverUser = await User.findById(receiverId);
+      if (!receiverUser) {
+        socket.emit('messageError', 'User not found.');
+        return;
+      }
+
+      const roomId = [user.id, receiverId].sort().join('_');
+
+      const message = await Message.create({
+        sender: user.id,
+        receiver: receiverId,
+        text: text.trim(),
+        roomId
+      });
+
+      await message.populate('sender receiver', 'fullName role');
+
+      const messageData = {
+        id: message._id.toString(),
+        roomId: message.roomId,
+        text: message.text,
+        timestamp: message.timestamp,
+        sender: {
+          id: message.sender._id.toString(),
+          fullName: message.sender.fullName,
+          role: message.sender.role
+        },
+        receiver: {
+          id: message.receiver._id.toString(),
+          fullName: message.receiver.fullName,
+          role: message.receiver.role
+        }
+      };
+
+      io.to(roomId).emit('newMessage', messageData);
+      io.to('admin-monitor').emit('newMessage', messageData);
+
+      try {
+        await Notification.create({
+          user: receiverId,
+          message: `Message from Ethio Books: ${message.sender.fullName}`,
+          type: 'message'
+        });
+        io.to(`user:${receiverId}`).emit('notification', {
+          message: 'You have a message from support.',
+          type: 'message',
+          createdAt: new Date().toISOString()
+        });
+      } catch (notifyErr) {
+        console.error('admin notify error:', notifyErr);
+      }
+    } catch (err) {
+      console.error('adminSendMessage error:', err);
     }
   });
 
