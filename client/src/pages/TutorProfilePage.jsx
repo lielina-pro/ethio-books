@@ -42,7 +42,7 @@ const TutorProfilePage = () => {
   const [selectedPaidContent, setSelectedPaidContent] = useState(null);
   const [pendingPurchases, setPendingPurchases] = useState([]); // contentId[]
   const [paidAccessById, setPaidAccessById] = useState({}); // contentId => 'approved' | 'needsPayment'
-  const [paidAccessChecking, setPaidAccessChecking] = useState(false);
+  //const [paidAccessChecking, setPaidAccessChecking] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('ethioBooksToken') : null;
   const storedUser = typeof window !== 'undefined' ? localStorage.getItem('ethioBooksUser') : null;
