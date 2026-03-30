@@ -1,14 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 const PRIMARY_BLUE = '#007BFF';
 
 const AuthPage = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [authMode, setAuthMode] = useState('register'); // 'login' | 'register'
   const [role, setRole] = useState('student'); // 'student' | 'tutor'
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const roleParam = searchParams.get('role');
+
+    if (tab === 'login') {
+      setAuthMode('login');
+    } else if (tab === 'register') {
+      setAuthMode('register');
+    }
+
+    if (roleParam === 'tutor') {
+      setRole('tutor');
+    } else if (roleParam === 'student') {
+      setRole('student');
+    }
+  }, [searchParams]);
 
   // Shared fields
   const [fullName, setFullName] = useState('');
@@ -62,8 +80,13 @@ const AuthPage = () => {
           });
         }
 
+        const registerUrl =
+          role === 'tutor'
+            ? 'http://localhost:5000/api/auth/register-tutor'
+            : 'http://localhost:5000/api/auth/register';
+
         const response = await axios.post(
-          'http://localhost:5000/api/auth/register',
+          registerUrl,
           formData,
           {
             headers: {
@@ -83,6 +106,7 @@ const AuthPage = () => {
 
         if (user?.role === 'tutor') {
           alert('Registration successful! Please wait for Admin approval.');
+          navigate('/tutor');
         } else if (user?.role === 'student') {
           navigate('/dashboard');
         }
@@ -138,6 +162,14 @@ const AuthPage = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50/50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="w-full max-w-7xl grid lg:grid-cols-2 gap-12 lg:gap-16 items-center mx-auto">
+        <div className="lg:col-span-2 -mb-6">
+          <Link
+            to="/"
+            className="inline-flex items-center text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            ← Back to Home
+          </Link>
+        </div>
         {/* Left: Branding / Info */}
         <div className="hidden lg:flex flex-col justify-center space-y-10">
           <div>
@@ -362,10 +394,8 @@ const AuthPage = () => {
                   onChange={(e) => setGender(e.target.value)}
                 >
                   <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                  <option value="prefer_not_to_say">Prefer not to say</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
                 </select>
               </div>
             )}

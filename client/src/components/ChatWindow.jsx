@@ -3,8 +3,6 @@ import { io } from 'socket.io-client';
 
 const PRIMARY_BLUE = '#007BFF';
 
-// Generic chat window for student or tutor.
-// Expects otherUserId and otherUserName props.
 const ChatWindow = ({ otherUserId, otherUserName }) => {
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState('');
@@ -12,34 +10,28 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
   const socketRef = useRef(null);
   const roomIdRef = useRef('');
 
-  let currentUser = null;
-  let token = null;
-  if (typeof window !== 'undefined') {
+  useEffect(() => {
+    if (!otherUserId) return;
+
     const storedUser = localStorage.getItem('ethioBooksUser');
     const storedToken = localStorage.getItem('ethioBooksToken');
-    if (storedUser) {
-      try {
-        currentUser = JSON.parse(storedUser);
-      } catch {
-        currentUser = null;
-      }
+    if (!storedUser || !storedToken) return;
+
+    let currentUser;
+    try {
+      currentUser = JSON.parse(storedUser);
+    } catch {
+      return;
     }
-    token = storedToken || null;
-  }
 
-  useEffect(() => {
-    if (!currentUser || !token || !otherUserId) return;
-
-    const currentUserId = currentUser.id || currentUser._id;
+    const currentUserId = (currentUser._id || currentUser.id || '').toString();
     if (!currentUserId) return;
 
-    const roomId = [currentUserId.toString(), otherUserId.toString()]
-      .sort()
-      .join('_');
+    const roomId = [currentUserId, otherUserId.toString()].sort().join('_');
     roomIdRef.current = roomId;
 
     const socket = io('http://localhost:5000', {
-      auth: { token }
+      auth: { token: storedToken }
     });
 
     socketRef.current = socket;
@@ -53,8 +45,9 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
     });
 
     socket.on('messageError', (msg) => {
-      setError(msg);
-      setTimeout(() => setError(''), 4000);
+      const errText = typeof msg === 'string' ? msg : msg?.message || 'Message failed';
+      setError(errText);
+      setTimeout(() => setError(''), 5000);
     });
 
     socket.on('connect_error', (err) => {
@@ -63,8 +56,9 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
 
     return () => {
       socket.disconnect();
+      socketRef.current = null;
     };
-  }, [currentUser, token, otherUserId]);
+  }, [otherUserId]);
 
   const handleSend = () => {
     const trimmed = text.trim();
@@ -78,6 +72,20 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
     setText('');
   };
 
+  let currentUser = null;
+  if (typeof window !== 'undefined') {
+    const stored = localStorage.getItem('ethioBooksUser');
+    if (stored) {
+      try {
+        currentUser = JSON.parse(stored);
+      } catch {
+        currentUser = null;
+      }
+    }
+  }
+
+  const token = typeof window !== 'undefined' ? localStorage.getItem('ethioBooksToken') : null;
+
   if (!currentUser || !token) {
     return (
       <div className="border border-gray-100 rounded-xl p-4 text-xs text-gray-500">
@@ -87,43 +95,32 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
   }
 
   return (
-    <div className="flex flex-col h-full border border-gray-100 rounded-xl bg-white shadow-sm">
+    <div className="flex flex-col h-full min-h-[280px] border border-gray-100 rounded-xl bg-white shadow-sm">
       <div
         className="px-4 py-2 border-b border-gray-100 flex items-center justify-between"
         style={{ backgroundColor: 'rgba(0,123,255,0.03)' }}
       >
         <div>
           <p className="text-xs font-semibold text-gray-800">
-            Chat with {otherUserName || 'Tutor'}
+            Chat with {otherUserName || 'User'}
           </p>
-          <p className="text-[11px] text-gray-500">
-            Messages may be monitored by admin.
-          </p>
+          <p className="text-[11px] text-gray-500">Messages may be monitored by admin.</p>
         </div>
       </div>
 
       {error && (
-        <div className="px-3 py-2 text-[11px] text-red-700 bg-red-50 border-b border-red-100">
-          {error}
-        </div>
+        <div className="px-3 py-2 text-[11px] text-red-700 bg-red-50 border-b border-red-100">{error}</div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 text-xs bg-gray-50">
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 text-xs bg-gray-50 max-h-[320px]">
         {messages.length === 0 ? (
-          <p className="text-[11px] text-gray-400">
-            No messages yet. Say hello!
-          </p>
+          <p className="text-[11px] text-gray-400">No messages yet. Say hello!</p>
         ) : (
           messages.map((msg) => {
             const isMine =
-              msg.sender?.id === (currentUser.id || currentUser._id)?.toString();
+              msg.sender?.id === (currentUser._id || currentUser.id)?.toString();
             return (
-              <div
-                key={msg.id}
-                className={`flex ${
-                  isMine ? 'justify-end' : 'justify-start'
-                }`}
-              >
+              <div key={msg.id} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
                 <div
                   className={`max-w-[70%] rounded-lg px-2 py-1.5 ${
                     isMine
@@ -132,15 +129,11 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
                   }`}
                 >
                   {!isMine && (
-                    <p className="text-[10px] font-semibold mb-0.5">
-                      {msg.sender?.fullName || 'User'}
-                    </p>
+                    <p className="text-[10px] font-semibold mb-0.5">{msg.sender?.fullName || 'User'}</p>
                   )}
                   <p className="text-[11px]">{msg.text}</p>
                   <p className="text-[9px] opacity-70 mt-0.5 text-right">
-                    {msg.timestamp
-                      ? new Date(msg.timestamp).toLocaleTimeString()
-                      : ''}
+                    {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ''}
                   </p>
                 </div>
               </div>
@@ -177,4 +170,3 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
 };
 
 export default ChatWindow;
-

@@ -24,6 +24,10 @@ const messageSchema = new mongoose.Schema(
     roomId: {
       type: String,
       required: true
+    },
+    read: {
+      type: Boolean,
+      default: false
     }
   },
   {

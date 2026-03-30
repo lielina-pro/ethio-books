@@ -18,13 +18,14 @@ const ProtectedRoute = ({ allowedRoles = [] }) => {
   }
 
   if (!user) {
-    return <Navigate to="/" state={{ from: location }} replace />;
+    return <Navigate to="/auth" state={{ from: location }} replace />;
   }
 
   const { role, tutorStatus } = user;
 
-  // Tutors who are still pending should be redirected to waiting page
-  if (role === 'tutor' && tutorStatus === 'pending') {
+  // Tutors who are still pending are redirected unless they are on `/tutor`,
+  // where we render a dedicated pending-state UI.
+  if (role === 'tutor' && tutorStatus === 'pending' && location.pathname !== '/tutor') {
     return <Navigate to="/waiting-approval" replace />;
   }
 
@@ -33,8 +34,14 @@ const ProtectedRoute = ({ allowedRoles = [] }) => {
     if (role === 'student') {
       return <Navigate to="/dashboard" replace />;
     }
+    if (role === 'tutor') {
+      return <Navigate to="/tutor" replace />;
+    }
+    if (role === 'admin') {
+      return <Navigate to="/admin" replace />;
+    }
     // Default fallback for other roles
-    return <Navigate to="/" replace />;
+    return <Navigate to="/auth" replace />;
   }
 
   return <Outlet />;

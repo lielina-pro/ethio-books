@@ -34,13 +34,30 @@ const userSchema = new mongoose.Schema(
     },
     phone: { type: String, required: true, trim: true },
     age: { type: Number, min: 0 },
-    gender: { type: String, trim: true },
+    gender: {
+      type: String,
+      trim: true,
+      enum: ['Male', 'Female']
+    },
 
     // Tutor-specific fields
     telegramUsername: { type: String, trim: true }, // e.g. @username
     educationLevel: { type: String, trim: true }, // e.g. BSc, MSc, etc.
     achievements: { type: String, trim: true }, // free-text description
     
+    // Tutor marketplace fields
+    subjects: [{ type: String, trim: true }],
+    hourlyRate: { type: Number, min: 0 },
+    bio: { type: String, trim: true, default: '' },
+    availability: [
+      {
+        day: { type: String, trim: true }, // e.g. 'Mon'
+        slots: [{ type: String, trim: true }] // e.g. ['09:00-11:00']
+      }
+    ],
+    totalStudents: { type: Number, default: 0, min: 0 },
+    totalSessions: { type: Number, default: 0, min: 0 },
+
     // NEW FIELDS FOR ADMIN WORKFLOW
     rejectionNote: { type: String, default: "" }, // Stores the "Why rejected" message
     isVerified: { type: Boolean, default: false }, // Useful for badges/filtering

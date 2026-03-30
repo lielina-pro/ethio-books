@@ -26,17 +26,36 @@ const register = async (req, res) => {
       role = 'student', password, grade, schoolName
     } = req.body;
 
+    // eslint-disable-next-line no-console
+    console.log('[register] received:', {
+      fullName: typeof fullName === 'string' ? fullName.slice(0, 40) : fullName,
+      phone,
+      role,
+      gender,
+      grade,
+      schoolName: typeof schoolName === 'string' ? schoolName.slice(0, 40) : schoolName
+    });
+
     // 1. Validation
     if (!fullName || !phone || !password) {
       return res.status(400).json({ message: 'Full name, phone and password are required' });
+    }
+
+    const normalizedGender =
+      gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : gender;
+
+    if (normalizedGender && !['Male', 'Female'].includes(normalizedGender)) {
+      return res.status(400).json({ message: 'Gender must be Male or Female' });
     }
 
     if (role === 'admin') {
       return res.status(403).json({ message: 'Admin accounts cannot be created publicly' });
     }
 
-    // 2. Check Existence
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    // 2. Check Existence (avoid querying { email: undefined })
+    const or = [{ phone }];
+    if (email) or.push({ email });
+    const existingUser = await User.findOne({ $or: or });
     if (existingUser) {
       return res.status(400).json({ message: 'User with this email or phone already exists' });
     }
@@ -49,12 +68,12 @@ const register = async (req, res) => {
       fullName,
       email,
       phone,
-      age,
-      gender,
+      age: age ? Number(age) : undefined,
+      gender: normalizedGender || undefined,
       role,
       password: hashedPassword,
       status: 'active', // Students are active by default
-      grade,
+      grade: grade ? Number(grade) : undefined,
       schoolName
     });
 
@@ -65,6 +84,13 @@ const register = async (req, res) => {
     console.error('Register error:', error);
     return res.status(500).json({ message: 'Server error' });
   }
+};
+
+const toSafeUser = (userDoc) => {
+  if (!userDoc) return null;
+  const obj = userDoc.toObject ? userDoc.toObject() : { ...userDoc };
+  delete obj.password;
+  return obj;
 };
 
 /**
@@ -97,15 +123,7 @@ const login = async (req, res) => {
     return res.json({
       message: 'Logged in successfully',
       token,
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        role: user.role,
-        status: user.status,
-        tutorStatus: user.tutorStatus,
-        isPremium: user.isPremium,
-        grade: user.grade
-      }
+      user: toSafeUser(user)
     });
   } catch (error) {
     console.error('Login error:', error);
@@ -121,8 +139,14 @@ const registerTutor = async (req, res) => {
   // Wrap in Try/Catch to prevent server crashes
   try {
     const {
-      fullName, email, password, phone,
-      education, bio, telegramUsername, trialVideoUrl
+      fullName,
+      email,
+      password,
+      phone,
+      educationLevel,
+      achievements,
+      telegramUsername,
+      trialVideoUrl
     } = req.body;
 
     // 1. Validation
@@ -130,9 +154,11 @@ const registerTutor = async (req, res) => {
       return res.status(400).json({ message: 'Required fields are missing' });
     }
 
-    // 2. Handle the File Safely
-    // If a file exists, use path; otherwise, use null to avoid breaking
-    const documentPath = req.file ? req.file.path : null;
+    // 2. Handle uploaded documents (multi-file)
+    // With multer-storage-cloudinary, each file's `path` is the hosted URL.
+    // Prefer `req.docsUrls` if the middleware populated it.
+    const docsUrls =
+      Array.isArray(req.docsUrls) ? req.docsUrls : (req.files || []).map((f) => f.path);
 
     // 3. Check Existence
     const existingTutor = await User.findOne({ $or: [{ email }, { phone }] });
@@ -153,11 +179,11 @@ const registerTutor = async (req, res) => {
       // Manual Status Setup for Admin Approval Workflow
       status: 'pending',
       isVerified: false,
-      educationLevel: education,
-      achievements: bio,
+      educationLevel,
+      achievements,
       telegramUsername,
       trialVideoUrl,
-      docs: documentPath ? [documentPath] : []
+      docs: docsUrls
     });
 
     const token = generateToken(tutor._id, tutor.role);
@@ -165,12 +191,7 @@ const registerTutor = async (req, res) => {
     return res.status(201).json({
       message: 'Tutor registered successfully. Waiting for admin approval.',
       token,
-      user: {
-        id: tutor._id,
-        fullName: tutor.fullName,
-        role: tutor.role,
-        status: tutor.status
-      }
+      user: toSafeUser(tutor)
     });
 
   } catch (error) {
@@ -183,8 +204,35 @@ const registerTutor = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Get current authenticated user profile
+ * @route   GET /api/auth/me
+ */
+const getMe = async (req, res) => {
+  return res.json(req.user);
+};
+
+/**
+ * @desc    First admin user id for Help Center / DMs (any authenticated user)
+ * @route   GET /api/auth/help-admin
+ */
+const getHelpAdmin = async (_req, res) => {
+  try {
+    const admin = await User.findOne({ role: 'admin' }).select('fullName');
+    if (!admin) {
+      return res.status(404).json({ message: 'No help center admin configured' });
+    }
+    return res.json({ _id: admin._id, fullName: admin.fullName });
+  } catch (error) {
+    console.error('getHelpAdmin error:', error);
+    return res.status(500).json({ message: 'Server error' });
+  }
+};
+
 module.exports = {
   register,
   login,
-  registerTutor
+  registerTutor,
+  getMe,
+  getHelpAdmin
 };
