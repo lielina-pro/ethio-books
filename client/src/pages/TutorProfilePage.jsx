@@ -149,30 +149,30 @@ const TutorProfilePage = () => {
       return;
     }
 
-    setPaidAccessChecking(true);
-    try {
-      const results = {};
-      await Promise.all(
-        paidContent.map(async (item) => {
-          try {
-            await api.get(`/content/${item._id}`);
-            results[item._id] = 'approved';
-          } catch (err) {
-            // Backend responds with { needsPayment: true } when payment is not approved yet.
-            const status = err?.response?.status;
-            if (status === 403 && err?.response?.data?.needsPayment) {
-              results[item._id] = 'needsPayment';
-            } else {
-              results[item._id] = 'needsPayment';
-            }
-          }
-        })
-      );
-      setPaidAccessById(results);
-    } finally {
-      setPaidAccessChecking(false);
-    }
-  }, [paidContent, api]);
+  //   setPaidAccessChecking(true);
+  //   try {
+  //     const results = {};
+  //     await Promise.all(
+  //       paidContent.map(async (item) => {
+  //         try {
+  //           await api.get(`/content/${item._id}`);
+  //           results[item._id] = 'approved';
+  //         } catch (err) {
+  //           // Backend responds with { needsPayment: true } when payment is not approved yet.
+  //           const status = err?.response?.status;
+  //           if (status === 403 && err?.response?.data?.needsPayment) {
+  //             results[item._id] = 'needsPayment';
+  //           } else {
+  //             results[item._id] = 'needsPayment';
+  //           }
+  //         }
+  //       })
+  //     );
+  //     setPaidAccessById(results);
+  //   } finally {
+  //     setPaidAccessChecking(false);
+  //   }
+  // }, [paidContent, api]);
 
   useEffect(() => {
     checkPaidAccessStatuses();
