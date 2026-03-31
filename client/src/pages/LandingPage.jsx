@@ -142,7 +142,7 @@ const LandingPage = () => {
             <div className="aspect-video w-full overflow-hidden rounded-xl bg-black">
               <iframe
                 className="h-full w-full"
-                src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+                src="https://www.youtube.com/embed/Dc5ar5jhj6A"
                 title="Ethio Books Intro"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen

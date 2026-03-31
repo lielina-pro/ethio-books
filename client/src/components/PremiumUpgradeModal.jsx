@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
+const PREMIUM_PRICE_ETB = 200;
 
 const PremiumUpgradeModal = ({ isOpen, onClose, userId, onUpgradeComplete }) => {
   const [step, setStep] = useState('options'); // 'options', 'upload', 'pending'
@@ -112,16 +113,25 @@ const PremiumUpgradeModal = ({ isOpen, onClose, userId, onUpgradeComplete }) => 
         <div className="p-6">
           {step === 'options' && (
             <div className="space-y-4">
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+                <p className="text-xs font-bold uppercase tracking-wider text-blue-700">Premium Price</p>
+                <p className="mt-1 text-2xl font-extrabold text-blue-900">{PREMIUM_PRICE_ETB} ETB</p>
+              </div>
               <p className="text-gray-600 mb-4">Choose your payment method to unlock premium features:</p>
               {paymentOptions.map((option) => (
                 <button
                   key={option.name}
                   type="button"
                   onClick={() => handleSelectMethod(option)}
-                  className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition"
+                  className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-blue-300 hover:bg-blue-50 transition flex items-start justify-between gap-3"
                 >
-                  <div className="font-extrabold text-gray-900">{option.name}</div>
-                  <div className="text-sm text-gray-500 mt-1">Account: {option.account}</div>
+                  <div>
+                    <div className="font-extrabold text-gray-900">{option.name}</div>
+                    <div className="text-sm text-gray-500 mt-1">Account: {option.account}</div>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-bold text-blue-800">
+                    {PREMIUM_PRICE_ETB} ETB
+                  </span>
                 </button>
               ))}
             </div>
@@ -133,6 +143,7 @@ const PremiumUpgradeModal = ({ isOpen, onClose, userId, onUpgradeComplete }) => 
                 <p className="font-bold text-blue-900">Send payment to:</p>
                 <p className="text-lg font-extrabold text-blue-700 mt-1">{selectedMethod.name}</p>
                 <p className="text-sm text-gray-600 mt-1">Account: {selectedMethod.account}</p>
+                <p className="text-sm font-bold text-blue-900 mt-2">Amount: {PREMIUM_PRICE_ETB} ETB</p>
                 <p className="text-xs text-gray-500 mt-2">{selectedMethod.instructions}</p>
               </div>
 
@@ -195,6 +206,7 @@ const PremiumUpgradeModal = ({ isOpen, onClose, userId, onUpgradeComplete }) => 
                 Your payment proof has been submitted. Admin will verify and approve your premium access within 24
                 hours.
               </p>
+              <p className="text-sm font-bold text-blue-900 mb-2">Amount: {PREMIUM_PRICE_ETB} ETB</p>
               <p className="text-sm text-gray-500">
                 Request ID: <span className="font-bold">{paymentRequestId || '—'}</span>
               </p>

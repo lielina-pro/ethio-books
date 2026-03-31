@@ -33,7 +33,7 @@ async function run() {
       grade: 10,
       description: 'Complete algebra textbook covering equations, functions, graphs.',
       contentType: 'textbook',  // Using contentType as model expects
-      pdfUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      pdfUrl: 'https://drive.google.com/file/d/1rItTIAqA3wldd2WqOzMMEea4acYHQ1Tk/preview',
       isPremium: false
     },
     {

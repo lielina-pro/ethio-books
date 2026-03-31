@@ -79,20 +79,34 @@ const StudentDashboard = () => {
   }, [token]);
 
   const fetchLibraryContent = async () => {
-    const gradeParam = Number(user?.grade) || grade;
     try {
-      const res = await api.get(`/content/library?grade=${gradeParam}`);
+      const res = await api.get('/content/library');
       const data = Array.isArray(res.data) ? res.data : [];
       // eslint-disable-next-line no-console
-      console.log('[StudentDashboard] Fetched library:', data);
+      console.log('📚 Library response:', data);
       // eslint-disable-next-line no-console
-      console.log('[StudentDashboard] Library count:', data.length);
+      console.log(
+        '📚 Grades in response:',
+        Array.from(new Set(data.map((c) => c.grade))).sort()
+      );
       setLibrary(data);
       return data;
     } catch (err) {
       console.error('[StudentDashboard] Library fetch error:', err?.response?.data || err);
       setError(err?.response?.data?.message || 'Failed to load library content.');
       setLibrary([]);
+      throw err;
+    }
+  };
+
+  const fetchTutors = async () => {
+    try {
+      const res = await api.get('/content/tutors');
+      setTutors(Array.isArray(res.data) ? res.data : []);
+      return res;
+    } catch (err) {
+      console.error('[StudentDashboard] Tutors fetch failed:', err?.response?.data || err);
+      setTutors([]);
       throw err;
     }
   };
@@ -110,16 +124,11 @@ const StudentDashboard = () => {
       // error already surfaced
     }
 
-    const results = await Promise.allSettled([
-      api.get('/content/tutors'),
-      api.get('/bookings/student')
-    ]);
+    const results = await Promise.allSettled([fetchTutors(), api.get('/bookings/student')]);
 
     const [tutorRes, bookingRes] = results;
 
-    if (tutorRes.status === 'fulfilled') {
-      setTutors(Array.isArray(tutorRes.value.data) ? tutorRes.value.data : []);
-    } else {
+    if (tutorRes.status !== 'fulfilled') {
       console.error('[StudentDashboard] Tutors fetch failed:', tutorRes.reason?.response?.data || tutorRes.reason);
       setTutors([]);
       if (libraryOk) {
@@ -356,7 +365,12 @@ const StudentDashboard = () => {
             <button
               key={t.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => {
+                setTab(t.id);
+                if (t.id === 'tutors') {
+                  fetchTutors();
+                }
+              }}
               className={`rounded-xl px-4 py-2 text-sm font-bold transition ${
                 tab === t.id ? 'bg-blue-50 text-blue-700 border border-blue-100' : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
               }`}
@@ -390,7 +404,7 @@ const StudentDashboard = () => {
                     setShowPremiumModal(true);
                   }}
                 >
-                  Upgrade Now
+                  Upgrade Now (200 ETB)
                 </button>
               </div>
             )}

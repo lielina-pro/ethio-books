@@ -107,7 +107,7 @@ const getMyTutorContent = async (req, res) => {
 };
 
 /**
- * @desc    Get library content, filtered by grade, moderation, premium
+ * @desc    Get library content (no grade filter)
  * @route   GET /api/content/library
  */
 const getLibraryContent = async (req, res) => {
@@ -117,26 +117,24 @@ const getLibraryContent = async (req, res) => {
       return res.status(401).json({ message: 'Not authorized' });
     }
 
-    const requestedGrade = Number(req.query.grade);
-    const grade = Number.isFinite(requestedGrade) ? requestedGrade : Number(user.grade);
+    // NO grade filter - show ALL approved content
+    const query = { status: 'approved' };
 
-    const and = [approvedStatusFilter];
-
-    if (Number.isFinite(grade)) {
-      and.push({ grade });
+    // Filter by premium status only
+    if (!user?.isPremium) {
+      query.isPremium = { $ne: true };
     }
 
-    if (!user.isPremium) {
-      and.push({
-        $or: [{ isPremium: { $ne: true } }, { accessType: 'paid' }]
-      });
-    }
+    const items = await Content.find(query)
+      .select('-__v')
+      .sort({ grade: 1, subject: 1, createdAt: -1 });
 
     // eslint-disable-next-line no-console
-    console.log('[getLibraryContent] query filters:', { grade, isPremium: !!user.isPremium, and });
-    const items = await Content.find({ $and: and }).select('-__v').sort({ createdAt: -1 });
+    console.log('📚 Library content count:', items.length);
     // eslint-disable-next-line no-console
-    console.log('[getLibraryContent] result count:', items.length);
+    const grades = [...new Set(items.map((c) => c.grade))].sort();
+    // eslint-disable-next-line no-console
+    console.log('📚 Grades found:', grades);
 
     return res.json(items);
   } catch (error) {
