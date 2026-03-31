@@ -42,7 +42,7 @@ const TutorProfilePage = () => {
   const [selectedPaidContent, setSelectedPaidContent] = useState(null);
   const [pendingPurchases, setPendingPurchases] = useState([]); // contentId[]
   const [paidAccessById, setPaidAccessById] = useState({}); // contentId => 'approved' | 'needsPayment'
-  //const [paidAccessChecking, setPaidAccessChecking] = useState(false);
+  const [paidAccessChecking, setPaidAccessChecking] = useState(false);
 
   const token = typeof window !== 'undefined' ? localStorage.getItem('ethioBooksToken') : null;
   const storedUser = typeof window !== 'undefined' ? localStorage.getItem('ethioBooksUser') : null;
@@ -149,30 +149,30 @@ const TutorProfilePage = () => {
       return;
     }
 
-  //   setPaidAccessChecking(true);
-  //   try {
-  //     const results = {};
-  //     await Promise.all(
-  //       paidContent.map(async (item) => {
-  //         try {
-  //           await api.get(`/content/${item._id}`);
-  //           results[item._id] = 'approved';
-  //         } catch (err) {
-  //           // Backend responds with { needsPayment: true } when payment is not approved yet.
-  //           const status = err?.response?.status;
-  //           if (status === 403 && err?.response?.data?.needsPayment) {
-  //             results[item._id] = 'needsPayment';
-  //           } else {
-  //             results[item._id] = 'needsPayment';
-  //           }
-  //         }
-  //       })
-  //     );
-  //     setPaidAccessById(results);
-  //   } finally {
-  //     setPaidAccessChecking(false);
-  //   }
-  // }, [paidContent, api]);
+    setPaidAccessChecking(true);
+    try {
+      const results = {};
+      await Promise.all(
+        paidContent.map(async (item) => {
+          try {
+            await api.get(`/content/${item._id}`);
+            results[item._id] = 'approved';
+          } catch (err) {
+            // Backend responds with { needsPayment: true } when payment is not approved yet.
+            const status = err?.response?.status;
+            if (status === 403 && err?.response?.data?.needsPayment) {
+              results[item._id] = 'needsPayment';
+            } else {
+              results[item._id] = 'needsPayment';
+            }
+          }
+        })
+      );
+      setPaidAccessById(results);
+    } finally {
+      setPaidAccessChecking(false);
+    }
+  }, [paidContent, api]);
 
   useEffect(() => {
     checkPaidAccessStatuses();
