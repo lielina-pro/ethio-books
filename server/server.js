@@ -29,25 +29,36 @@ const server = http.createServer(app);
 connectDB();
 
 // Middleware
+// Allowed origins (frontend URLs)
 const allowedOrigins = [
-  'http://localhost:3000',
-  'https://ethio-books-qztb.vercel.app',
-  'https://ethio-books.vercel.app'
+  'http://localhost:3000', // Local development
+  'https://ethio-books-qztb.vercel.app', // Current Vercel deployment
+  'https://ethio-books.vercel.app', // General Vercel domain
+  'https://ethio-books-qztb-git-main-ethio-books-projects.vercel.app' // Preview
 ];
+
+// Also allow environment variable for additional origins
+const envOrigins = process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : [];
+const allOrigins = [...allowedOrigins, ...envOrigins].map((o) => o.trim()).filter(Boolean);
 
 app.use(
   cors({
-    origin: function (origin, callback) {
-      // allow requests with no origin (like Postman)
+    origin(origin, callback) {
+      // Allow requests with no origin (like mobile apps, curl, Postman)
       if (!origin) return callback(null, true);
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
+      if (allOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
       } else {
-        return callback(new Error('CORS not allowed'));
+        // Log blocked origins to help debugging, but simply reject CORS
+        // rather than throwing an error that could crash the server.
+        console.log('CORS blocked origin:', origin);
+        callback(null, false);
       }
     },
-    credentials: true
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept']
   })
 );
 // Cloudinary health check route
@@ -88,7 +99,7 @@ app.use('/api/messages', messageRoutes);
 
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: allOrigins,
     methods: ['GET', 'POST'],
     credentials: true
   }
