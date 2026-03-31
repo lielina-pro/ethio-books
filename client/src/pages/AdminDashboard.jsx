@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import PremiumRequestsPanel from '../components/PremiumRequestsPanel';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -37,7 +38,7 @@ const AdminDashboard = () => {
     : null;
 
   const api = axios.create({
-    baseURL: 'http://localhost:5000/api',
+    baseURL: `${API_BASE}/api`,
     headers: token
       ? {
           Authorization: `Bearer ${token}`
@@ -82,7 +83,7 @@ const AdminDashboard = () => {
 
     fetchData();
 
-    const socket = io('http://localhost:5000', {
+    const socket = io(API_BASE, {
       auth: { token }
     });
 

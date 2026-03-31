@@ -3,11 +3,12 @@ import axios from 'axios';
 import { io } from 'socket.io-client';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const NotificationBell = ({ token }) => {
   const api = useMemo(() => {
     return axios.create({
-      baseURL: 'http://localhost:5000/api',
+      baseURL: `${API_BASE}/api`,
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
   }, [token]);
@@ -39,7 +40,7 @@ const NotificationBell = ({ token }) => {
 
     fetchNotifications();
 
-    const socket = io('http://localhost:5000', {
+    const socket = io(API_BASE, {
       auth: { token }
     });
     socketRef.current = socket;

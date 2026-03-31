@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const AuthPage = () => {
   const navigate = useNavigate();
@@ -82,8 +83,8 @@ const AuthPage = () => {
 
         const registerUrl =
           role === 'tutor'
-            ? 'http://localhost:5000/api/auth/register-tutor'
-            : 'http://localhost:5000/api/auth/register';
+            ? `${API_BASE}/api/auth/register-tutor`
+            : `${API_BASE}/api/auth/register`;
 
         const response = await axios.post(
           registerUrl,
@@ -124,7 +125,7 @@ const AuthPage = () => {
         }
 
         const response = await axios.post(
-          'http://localhost:5000/api/auth/login',
+          `${API_BASE}/api/auth/login`,
           payload
         );
 

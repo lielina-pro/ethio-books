@@ -4,12 +4,13 @@ import { X, Send, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const DMReplyModal = ({ isOpen, onClose, student, tutorId }) => {
   const token = typeof window !== 'undefined' ? localStorage.getItem('ethioBooksToken') : null;
   const api = useMemo(() => {
     return axios.create({
-      baseURL: 'http://localhost:5000/api',
+      baseURL: `${API_BASE}/api`,
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
   }, [token]);

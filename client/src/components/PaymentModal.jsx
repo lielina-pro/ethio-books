@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const PaymentModal = ({ isOpen, onClose, content, tutor, onPaymentSubmitted }) => {
   const [step, setStep] = useState('options'); // 'options' | 'upload' | 'pending'
@@ -72,7 +73,7 @@ const PaymentModal = ({ isOpen, onClose, content, tutor, onPaymentSubmitted }) =
       formData.append('paymentMethod', selectedMethod.name);
       formData.append('accountNumber', selectedMethod.account);
 
-      const res = await axios.post(`http://localhost:5000/api/content/${content._id}/payment-proof`, formData, {
+      const res = await axios.post(`${API_BASE}/api/content/${content._id}/payment-proof`, formData, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'multipart/form-data' }
       });
 

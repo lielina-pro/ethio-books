@@ -6,6 +6,7 @@ import BookingModal from '../components/BookingModal';
 import PaymentModal from '../components/PaymentModal';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const isPaidContentItem = (c) => c.accessType === 'paid' || c.isPremium === true;
 
@@ -59,7 +60,7 @@ const TutorProfilePage = () => {
   const api = useMemo(
     () =>
       axios.create({
-        baseURL: 'http://localhost:5000/api',
+        baseURL: `${API_BASE}/api`,
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       }),
     [token]
@@ -71,7 +72,7 @@ const TutorProfilePage = () => {
     setLoading(true);
     setError('');
     try {
-      const res = await axios.get(`http://localhost:5000/api/content/tutors/${id}`, {
+      const res = await axios.get(`${API_BASE}/api/content/tutors/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       setTutor(res.data);
@@ -92,7 +93,7 @@ const TutorProfilePage = () => {
     setContentLoading(true);
     setContentError('');
     try {
-      const cRes = await axios.get(`http://localhost:5000/api/content/tutor/${id}`, {
+      const cRes = await axios.get(`${API_BASE}/api/content/tutor/${id}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {}
       });
       const rows = Array.isArray(cRes.data) ? cRes.data : [];
