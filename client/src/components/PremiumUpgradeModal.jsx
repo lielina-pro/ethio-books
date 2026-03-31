@@ -3,6 +3,8 @@ import { X, Upload, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
+
 const PremiumUpgradeModal = ({ isOpen, onClose, userId, onUpgradeComplete }) => {
   const [step, setStep] = useState('options'); // 'options', 'upload', 'pending'
   const [selectedMethod, setSelectedMethod] = useState(null);
@@ -67,7 +69,7 @@ const PremiumUpgradeModal = ({ isOpen, onClose, userId, onUpgradeComplete }) => 
 
     try {
       const token = localStorage.getItem('ethioBooksToken');
-      const res = await axios.post('http://localhost:5000/api/premium/request', formData, {
+      const res = await axios.post(`${API_BASE}/api/premium/request`, formData, {
         headers: {
           Authorization: `Bearer ${token}`
         }

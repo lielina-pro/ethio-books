@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { io } from 'socket.io-client';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const ChatWindow = ({ otherUserId, otherUserName }) => {
   const [messages, setMessages] = useState([]);
@@ -30,7 +31,7 @@ const ChatWindow = ({ otherUserId, otherUserName }) => {
     const roomId = [currentUserId, otherUserId.toString()].sort().join('_');
     roomIdRef.current = roomId;
 
-    const socket = io('http://localhost:5000', {
+    const socket = io(API_BASE, {
       auth: { token: storedToken }
     });
 

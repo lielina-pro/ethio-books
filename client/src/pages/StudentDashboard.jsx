@@ -8,6 +8,7 @@ import PremiumUpgradeModal from '../components/PremiumUpgradeModal';
 import toast from 'react-hot-toast';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const statusStyles = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -59,7 +60,7 @@ const StudentDashboard = () => {
   const refreshUserData = async () => {
     if (!token) return;
     try {
-      const res = await axios.get('http://localhost:5000/api/auth/me', {
+      const res = await axios.get(`${API_BASE}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.data) {
@@ -72,7 +73,7 @@ const StudentDashboard = () => {
 
   const api = useMemo(() => {
     return axios.create({
-      baseURL: 'http://localhost:5000/api',
+      baseURL: `${API_BASE}/api`,
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     });
   }, [token]);
@@ -186,7 +187,7 @@ const StudentDashboard = () => {
       setPaySubmitting(true);
       const fd = new FormData();
       fd.append('screenshot', payFile);
-      await axios.post(`http://localhost:5000/api/content/${paymentModal.item._id}/payment-proof`, fd, {
+      await axios.post(`${API_BASE}/api/content/${paymentModal.item._id}/payment-proof`, fd, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setPaymentModal({ open: false, item: null, price: 0 });

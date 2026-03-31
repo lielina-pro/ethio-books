@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import { io } from 'socket.io-client';
 
 const PRIMARY_BLUE = '#007BFF';
+const API_BASE = process.env.REACT_APP_API_URL || 'https://ethio-books.onrender.com';
 
 const TutorDashboard = () => {
   const navigate = useNavigate();
@@ -51,7 +52,7 @@ const TutorDashboard = () => {
     const token = localStorage.getItem('ethioBooksToken');
     if (!token) return;
     try {
-      const res = await axios.get('http://localhost:5000/api/content/tutor/mine', {
+      const res = await axios.get(`${API_BASE}/api/content/tutor/mine`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMyContent(Array.isArray(res.data) ? res.data : []);
@@ -65,7 +66,7 @@ const TutorDashboard = () => {
     if (!tutor?._id) return;
     fetchRecentMessages();
 
-    const socket = io('http://localhost:5000', { auth: { token } });
+    const socket = io(API_BASE, { auth: { token } });
     socket.on('newMessage', (msg) => {
       if (msg?.receiver?.id && msg.receiver.id.toString() === tutor._id.toString()) {
         fetchRecentMessages();
@@ -88,7 +89,7 @@ const TutorDashboard = () => {
   const fetchRecentMessages = async () => {
     if (!token) return;
     try {
-      const res = await axios.get('http://localhost:5000/api/messages/recent?limit=5', {
+      const res = await axios.get(`${API_BASE}/api/messages/recent?limit=5`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setRecentMessages(Array.isArray(res.data) ? res.data : []);
@@ -119,7 +120,7 @@ const TutorDashboard = () => {
 
     const syncProfile = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/auth/me', {
+        const res = await axios.get(`${API_BASE}/api/auth/me`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
 
@@ -150,7 +151,7 @@ const TutorDashboard = () => {
       try {
         setBookingsLoading(true);
         setBookingsError('');
-        const res = await axios.get('http://localhost:5000/api/bookings/tutor', {
+        const res = await axios.get(`${API_BASE}/api/bookings/tutor`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setBookings(Array.isArray(res.data) ? res.data : []);
@@ -174,7 +175,7 @@ const TutorDashboard = () => {
         setContentLoading(true);
         await refreshMyContent();
         try {
-          const help = await axios.get('http://localhost:5000/api/auth/help-admin', {
+          const help = await axios.get(`${API_BASE}/api/auth/help-admin`, {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (help.data?._id) setHelpAdminId(help.data._id);
@@ -264,7 +265,7 @@ const TutorDashboard = () => {
     try {
       setUploadSubmitting(true);
       await axios.post(
-        'http://localhost:5000/api/content',
+        `${API_BASE}/api/content`,
         {
           title: courseTitle.trim(),
           description: courseDesc,
@@ -312,11 +313,11 @@ const TutorDashboard = () => {
     if (!token) return;
     try {
       await axios.put(
-        `http://localhost:5000/api/bookings/${bookingId}/status`,
+        `${API_BASE}/api/bookings/${bookingId}/status`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const res = await axios.get('http://localhost:5000/api/bookings/tutor', {
+      const res = await axios.get(`${API_BASE}/api/bookings/tutor`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setBookings(Array.isArray(res.data) ? res.data : []);
