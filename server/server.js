@@ -28,6 +28,10 @@ const server = http.createServer(app);
 // Connect to MongoDB
 connectDB();
 
+// ✅ Body parser middleware (MUST be before any routes)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 // Middleware
 // Allowed origins (frontend URLs)
 const allowedOrigins = [
