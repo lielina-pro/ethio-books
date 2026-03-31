@@ -4,9 +4,6 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 
 const PRIMARY_BLUE = '#007BFF';
 
-// ✅ Add this line - API base URL from environment variable
-const API_BASE = process.env.REACT_APP_API_URL || 'http://localhost:5000';
-
 const AuthPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -83,11 +80,10 @@ const AuthPage = () => {
           });
         }
 
-        // ✅ Use API_BASE instead of hardcoded localhost
         const registerUrl =
           role === 'tutor'
-            ? `${API_BASE}/api/auth/register-tutor`
-            : `${API_BASE}/api/auth/register`;
+            ? 'http://localhost:5000/api/auth/register-tutor'
+            : 'http://localhost:5000/api/auth/register';
 
         const response = await axios.post(
           registerUrl,
@@ -127,9 +123,8 @@ const AuthPage = () => {
           payload.phone = phone;
         }
 
-        // ✅ Use API_BASE for login
         const response = await axios.post(
-          `${API_BASE}/api/auth/login`,
+          'http://localhost:5000/api/auth/login',
           payload
         );
 
@@ -143,6 +138,7 @@ const AuthPage = () => {
         }
 
         if (user?.role === 'tutor') {
+          // You can route tutors to a pending/overview page
           navigate('/tutor');
         } else if (user?.role === 'admin') {
           navigate('/admin');
